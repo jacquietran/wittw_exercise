@@ -1,0 +1,123 @@
+---
+title: "What It Takes To Win: Cricket - T20"
+author: "Jacquie Tran"
+format: revealjs
+---
+
+## Introduction
+
+- Cricket will be added to the Olympic sports program for LA 2028. The format is expected to be T20.
+- The Australian Cricket Teams are consistently among the most successful international sides in world cricket, the Women's Team in particular.
+- In recent years, with the professionalisation and maturation of Women's Cricket globally, more nations are challenging the Australian Women's Team in major events (see: T20 World Cup 2024, won by the White Ferns).
+- Timely and important to understand What It Takes To Win in Women's T20 Cricket, at the start of the 2028 Olympic cycle.
+
+## Only a slice of "What It Takes To Win"
+
+- Using publicly available game stats
+- Acknowledgement that other factors are critical (daily training and recovery measures, trusted coaches and support team, physiological / biomechanical measures, etc.) but not reflected in public data and thus not able to be analysed for this presentation
+
+## Higher-level principles of team sports performance
+
+Mix of experience, early / mid / late career
+
+Adaptability: in tournament play, in ways to impact the game (all-rounders)
+
+Balanced performance across all major facets of the game (bat, ball, fielding)
+
+Unpredictability (options as a batter, left-right batting partnerships, variety as a bowler, uncommon bowling styles - leggie, left arm orthodox)
+
+Impact play: Batting - Boundary scoring rate, strike rate. Bowling - Strike rate, wickets in key phases (early innings Power Play, late innings / "death" overs?)
+
+## Motivating questions / hypotheses
+
+Descriptive analysis: Progression of standard metrics over multiple tournaments
+
+- Innings total when setting vs. chasing (wins and losses)
+- Wickets taken
+- Batting averages
+- Strike rates
+- Boundary scoring rate
+- Extras bowled
+- Modes of dismissal
+- Spread of bowlers used
+
+Team make-up
+
+- Depth chart: Age distribution, international experience, World Cup experience / tournament continuity
+- All-rounders: Number selected and output with bat and ball
+- Stability of playing XI
+
+Performance
+
+- Batting anchor: "Build around Beth Mooney"
+- Building pressure with the bat:
+     - Capability to accelerate strike rate
+     - Turning over the strike
+     - Distribution of shots in different parts of the ground
+- Building pressure with the ball:
+     - Dot balls, wickets, partnership bowling, variety
+     - Fielding / modes of dismissal
+- Variety of contributors with bat and ball (minimising dependence on "star" players)
+
+## Methods
+
+- This presentation will focus on Women's T20 World Cups and Commonwealth Games (since 2028 will be the first appearance at an Olympic Games for cricket)
+- Data obtained from [Cricsheet.org](https://cricsheet.org) using the `{cricketdata}` R package
+- Ball-by-ball data available for T20 World Cups in 2018, 2020, 2023, and 2024, and the 2022 Commonwealth Games
+
+## Retrieve data
+
+```{r retrieve_data}
+
+# First, obtain match IDs for Women's T20 World Cup tournaments or Comm Games
+t20wc_match_ids <- cricketdata::fetch_cricsheet(
+  type = "match",
+  gender = "female",
+  competition = "t20s") |>
+  # Filter to World Cup matches
+  dplyr::filter(
+    event %in% c(
+      "ICC Women's T20 World Cup",
+      "Commonwealth Games Women's Cricket Competition"))
+
+# Retrieve playing XI lists, filter to T20 World Cup or Comm Games matches only
+t20wc_team_lists <- cricketdata::fetch_cricsheet(
+  type = "player",
+  gender = "female",
+  competition = "t20s") |>
+  # Filter to World Cup matches
+  dplyr::filter(
+    match_id %in% t20wc_match_ids$match_id)
+
+# Retrieve ball-by-ball data, filter to T20 World Cup or Comm Games matches only
+t20wc_bbb <- cricketdata::fetch_cricsheet(
+  type = "bbb",
+  gender = "female",
+  competition = "t20s") |>
+  # Filter to World Cup matches
+  dplyr::filter(
+    match_id %in% t20wc_match_ids$match_id)
+
+```
+
+**JT NOTE:** In team lists data, do I have to tidy up any name changes over time?
+
+```{r}
+
+# Retrieve career data from ESPNCricinfo
+EllysePerry <- cricketdata::fetch_player_data(275487, "T20", "batting")
+
+```
+
+
+## Gaps
+
+Fielding data availability and range of metrics
+
+Hawkeye data limited for women's matches
+
+## Extending the analysis
+
+- Deeper analysis of key opposition, using data from T20 internationals in addition to T20 World Cups / Comm Games (e.g., England, India, South Africa, New Zealand)
+- Data from Sportradar and possibly Hawkeye data if available for women's matches
+- Relevance of professional T20 leagues? Australia (WBBL), England (The Hundred), India (WPL), New Zealand (Super Smash)
