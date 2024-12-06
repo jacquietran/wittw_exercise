@@ -1,12 +1,12 @@
 ---
-title: "What It Takes To Win: Cricket - T20"
-author: "Jacquie Tran"
+title: "What It Takes To Win: Cricket - Women's T20"
+author: "Jacquie Tran | `r Sys.Date()`"
 format:
   revealjs:
     theme: [night, custom.scss]
 ---
 
-## Introduction
+## Background
 
 - Cricket will be added to the Olympic program for LA 2028. The format is expected to be T20.
 - The Australian Women's cricket team has long been among the most successful international sides in world cricket.
@@ -14,13 +14,23 @@ format:
 
 ## Bottom Line Up Front
 
-From a scoping analysis of team and game data, these factors appear related to winning in Women's T20 cricket (specifically in World Cup tournament play):
+From this exploratory analysis of game data from T20 World Cup tournament play, these factors appear related to winning in Women's T20 cricket:
+
+**Batting**
 
 - Point 1
 - Point 2
 - Point 3
 
-## Only a slice of "What It Takes To Win"
+**Bowling**
+
+- Point 1
+- Point 2
+- Point 3
+
+# Methods
+
+## Caveat: Only a slice of "What It Takes To Win"
 
 This quantitative analysis uses publicly available competition and game data only
 
@@ -30,24 +40,22 @@ Other factors are critical to performance but not reflected in public data, and 
 - Measures of training state and performance: Physiological, biomechanical, physical, psychological
 - "Tight team": Trusted relationships between athletes, coaches, and support team
 
-## Higher-level principles of team sports performance
+## Overview of analytical approach
 
-**International experience** ([Kalén, et al. 2017](https://doi.org/10.1080/24748668.2017.1405610))
+**Game outcomes**
 
-**Scoring power**
+- Wickets
+- Runs scored
 
-> *"Batting performance characteristics appear to be more important than bowling characteristics, which is even more pronounced in women's T20 cricket."* ([Bhardwaj & Dwyer, 2022](https://doi.org/10.1080/24748668.2022.2045820))
+**Performance measures**
 
-**"Tempo":** As in chess; increasing pressure by threatening finite resources (dot balls and wickets)
+- Scoring: *"Batting performance characteristics appear to be more important than bowling characteristics, which is even more pronounced in women's T20 cricket."* ([Bhardwaj & Dwyer, 2022](https://doi.org/10.1080/24748668.2022.2045820))
 
-## Methods
+- "Tempo": Bowlers increasing pressure on the batting team by challenging finite resources (balls and wickets)
 
-- This presentation will focus on Women's T20 World Cups and Commonwealth Games from 2018 to 2024 (the extent of available ball-by-ball data)
-- Data obtained from [Cricsheet.org](https://cricsheet.org) and [ESPNCricinfo](https://www.espncricinfo.com) using the `{cricketdata}` R package
+## Data source
 
-## Retrieve data
-
-```{r retrieve_data, cache = TRUE}
+```{r retrieve_cricsheet_data, cache = TRUE}
 
 # First, obtain match IDs for Women's T20 World Cup tournaments or Comm Games
 t20wc_match_ids <- cricketdata::fetch_cricsheet(
@@ -80,220 +88,6 @@ t20wc_bbb <- cricketdata::fetch_cricsheet(
 
 ```
 
-```{r retrieve_team_lists_with_espncricinfo_id, eval = FALSE}
-
-# Run once to retrieve data initially, then saved to CSV
-
-# Tidy team lists to isolate unique player records and handle name variations
-t20wc_team_lists_unique <- t20wc_team_lists |>
-  dplyr::select(-match_id) |>
-  dplyr::group_by(team, player) |>
-  dplyr::distinct(player, .keep_all = TRUE) |>
-  dplyr::arrange(team, player) |>
-  dplyr::mutate(
-    player_tidy = dplyr::case_when(
-      # Name change
-      player %in% c(
-        "KH Brunt", "KH Sciver-Brunt")  ~ "KH Sciver-Brunt",
-      # Name change
-      player %in% c(
-        "NR Sciver", "NR Sciver-Brunt") ~ "NR Sciver-Brunt",
-      # Match to ESPNCricinfo format of name
-      player == "AC Jayangani"          ~ "C Athapaththu",
-      player == "U Thimashini"          ~ "U Thimeshani",
-      player == "Sidra Ameen"           ~ "Sidra Amin",
-      player == "Umaima Sohail"         ~ "Omaima Sohail",
-      player == "N Chantam"             ~ "N Chantham",
-      TRUE                              ~ player))
-
-# Match names to ESPNCricinfo IDs
-team_lists_matching <- t20wc_team_lists_unique |>
-  dplyr::mutate(
-    # Use convenience function to search for player IDs
-    espncricinfo_id = paste(
-      cricketdata::find_player_id(player_tidy)$ID, collapse = " "))
-    
-# Tidy up cases where the convenience function did not return the correct ID
-team_lists_with_espncricinfo_id <- team_lists_matching |>
-  dplyr::mutate(
-    espncricinfo_id = dplyr::case_when(
-      
-      team == "Australia" &
-        player_tidy == "A King"          ~ "944393",
-      team == "Australia" &
-        player_tidy == "A Sutherland"    ~ "1071705",
-      team == "Australia" &
-        player_tidy == "D Brown"         ~ "388845",
-      team == "Australia" &
-        player_tidy == "ML Schutt"       ~ "420314",
-      
-      team == "Barbados" &
-        player_tidy == "A Williams"      ~ "1325401",
-      team == "Barbados" &
-        player_tidy == "S Carrington"    ~ "1325395",
-      
-      team == "England" &
-        player_tidy == "KH Sciver-Brunt" ~ "53906",
-      team == "England" &
-        player_tidy == "NR Sciver-Brunt" ~ "515905",
-      
-      team == "India" &
-        player_tidy == "A Reddy"         ~ "960867",
-      team == "India" &
-        player_tidy == "M Joshi"         ~ "960815",
-      team == "India" &
-        player_tidy == "M Raj"           ~ "54273",
-      team == "India" &
-        player_tidy == "S Asha"          ~ "550687",
-      team == "India" &
-        player_tidy == "S Pandey"        ~ "442145",
-      team == "India" &
-        player_tidy == "S Rana"          ~ "556537",
-      team == "India" &
-        player_tidy == "SR Patil"        ~ "1289948",
-      team == "India" &
-        player_tidy == "T Bhatia"        ~ "883423",
-      
-      team == "Ireland" &
-        player_tidy == "A Hunter"        ~ "1229014",
-      team == "Ireland" &
-        player_tidy == "AN Kelly"        ~ "592593",
-      
-      team == "Pakistan" &
-        player_tidy == "Sidra Ameen"     ~ "362356",
-      team == "Pakistan" &
-        player_tidy == "Umaima Sohail"   ~ "941777",
-      
-      team == "Scotland" &
-        player_tidy == "A Lister"        ~ "1184173",
-      team == "Scotland" &
-        player_tidy == "AH Maqsood"      ~ "934494",
-      team == "Scotland" &
-        player_tidy == "L Jack"          ~ "416024",
-      team == "Scotland" &
-        player_tidy == "PA Chatterji"    ~ "526987",
-      team == "Scotland" &
-        player_tidy == "R Slater"        ~ "1184969",
-      
-      team == "South Africa" &
-        player_tidy == "D Tucker"        ~ "939253",
-      team == "South Africa" &
-        player_tidy == "L Lee"           ~ "483484",
-      team == "South Africa" &
-        player_tidy == "Z Mali"          ~ "593963",
-      
-      team == "Sri Lanka" &
-        player_tidy == "C Athapaththu"   ~ "318853",
-      team == "Sri Lanka" &
-        player_tidy == "H Karunaratne"   ~ "631722",
-      team == "Sri Lanka" &
-        player_tidy == "NND de Silva"    ~ "557764",
-      
-      team == "West Indies" &
-        player_tidy == "A Mohammed"      ~ "55187",
-      team == "West Indies" &
-        player_tidy == "B Cooper"        ~ "424629",
-      team == "West Indies" &
-        player_tidy == "SR Taylor"       ~ "355359",
-      team == "West Indies" &
-        player_tidy == "Z James"         ~ "1268281",
-      
-      TRUE ~ espncricinfo_id))
-
-# Save output to CSV - the convenience function is useful but run time is long
-write.csv(
-  team_lists_with_espncricinfo_id,
-  file = here::here("data/team_lists_with_espncricinfo_id.csv"),
-  row.names = FALSE)
-
-```
-
-```{r read_team_lists_with_espncricinfo_id}
-
-# Retrieved data called from a static file for efficiency's sake
-# Read in CSV with player names and ESPNCricinfo IDs
-team_lists_with_espncricinfo_id <- readr::read_csv(
-  file = here::here("data/team_lists_with_espncricinfo_id.csv"),
-  show_col_types = FALSE)
-
-```
-
-```{r retrieve_player_match_history, eval = FALSE}
-
-# Run once to retrieve data initially, then saved to CSV
-
-get_match_history <- function(ref_data){
-  
-  # Requires {purrr}, {dplyr}, {cricketdata}
-  
-  # Store ESPNCricinfo IDs, excluding players that have only bowled
-  id_vec_batting <- ref_data |>
-    dplyr::select(espncricinfo_id) |>
-    dplyr::pull()
-  
-  # Retrieve batting data
-  purrr::map_df(id_vec_batting, function(i) {
-      
-      # Simple but effective progress indicator
-      cat(".")
-      
-      # Retrieve player data from ESPNCricinfo
-      df <- cricketdata::fetch_player_data(i, "T20", "batting") |>
-        # Add column to include the player's ESPNCricinfo ID
-        dplyr::mutate(espncricinfo_id = i) |>
-        # Keep only the columns useful for this analysis
-        dplyr::select(espncricinfo_id, Date, Opposition)
-      
-    }) -> match_history
-  
-  return(match_history)
-    
-}
-
-# Retrieve T20I stats
-match_histories <- get_match_history(team_lists_with_espncricinfo_id)
-
-# Save output to CSV - the run time is long for recursive retrieval on a long
-# list of players
-write.csv(
-  match_histories,
-  file = here::here("data/match_histories.csv"),
-  row.names = FALSE)
-
-```
-
-```{r read_player_match_histories}
-
-# Retrieved data called from a static file for efficiency's sake
-match_histories <- readr::read_csv(
-  file = here::here("data/match_histories.csv"),
-  show_col_types = FALSE)
-
-```
-
-```{r wrangle_match_histories_tidy}
-
-# Merge match histories data and team lists metadata
-
-# First, reduce team lists data frame to handle duplicates that are included
-# to account for name changes (e.g., Katherine and Nat Sciver-Brunt)
-team_lists_reduced <- team_lists_with_espncricinfo_id |>
-  dplyr::filter(
-    !player %in% c("KH Brunt", "NR Sciver"))
-
-# Merge match histories with reduced team list
-match_histories_with_team_list <- dplyr::left_join(
-  match_histories, team_lists_reduced)
-
-# Create duplicate records for KH Sciver-Brunt and NR Sciver-Brunt, to
-# enable matching to T20WC match stats from Cricsheet
-
-# JT stopped here: Need to resolve unexpected many-to-many relationships
-# in order to proceed
-
-```
-
-
 ```{r tidy_cricsheet_data}
 
 # Tidy match IDs data frame
@@ -318,26 +112,97 @@ t20wc_bbb_tidy <- dplyr::left_join(
 
 ```
 
-# What does winning look like?
+This analysis draws on ball-by-ball data from international women's T20 tournaments from 2018 to 2024, specifically including:
+
+- Women's T20 World Cup tournaments held in 2018, 2020, 2023, and 2024
+- The Birmingham 2022 Commonwealth Games
+- Time span reflects the extent of publicly available ball-by-ball data
+     
+Data obtained from [Cricsheet.org](https://cricsheet.org) using the `{cricketdata}` R package
+
+# Game outcomes
 
 High-level performance outcomes
 
+## Ranking teams on wins
 
-# International experience
+Rank on number of matches won, then win percentage
 
-At tournament start
-Relative experience (team vs. team)
+```{r wrangle_teams_in_3_plus_tournaments}
 
-```{r}
+# First, identify teams that played in 3+ tournaments
+teams_in_3_plus_tournaments <- t20wc_match_ids |>
+  dplyr::select(
+    date, team1, team2) |>
+  dplyr::mutate(
+    year = stringr::str_sub(date, start = 1, end = 4)) |>
+  dplyr::select(
+    year, team1, team2) |>
+  tidyr::pivot_longer(
+    cols = c("team1", "team2"),
+    names_to = "key",
+    values_to = "value") |>
+  dplyr::select(-key) |>
+  dplyr::group_by(year) |>
+  dplyr::distinct(value, .keep_all = TRUE) |>
+  dplyr::ungroup() |>
+  dplyr::group_by(value) |>
+  dplyr::summarise(
+    n_tournaments = dplyr::n(),
+    .groups = "drop") |>
+  dplyr::filter(n_tournaments >= 3)
 
 ```
 
 
-# Batting performance
+```{r wrangle_team_rankings}
 
-Progression of standard metrics over multiple tournaments
+team_rankings <- t20wc_match_ids |>
+  dplyr::select(
+    match_id, team1, team2, winner) |>
+  tidyr::pivot_longer(
+    cols = c("team1", "team2"),
+    names_to = "key",
+    values_to = "team") |>
+  dplyr::mutate(
+    result = dplyr::case_when(
+      is.na(winner)  ~ "no_result",
+      winner == team ~ "win",
+      winner != team ~ "loss")) |>
+  # Filter to teams in 3+ tournaments
+  dplyr::filter(
+    team %in% teams_in_3_plus_tournaments$value) |>
+  dplyr::select(
+    match_id, team, result) |>
+  dplyr::group_by(team, result) |>
+  dplyr::summarise(
+    n_matches = dplyr::n(),
+    .groups = "drop") |>
+  tidyr::pivot_wider(
+    id_cols = "team",
+    names_from = "result",
+    values_from = "n_matches",
+    values_fill = 0) |>
+  dplyr::mutate(
+    matches_total = win + loss + no_result,
+    win_pct = round(win / matches_total * 100, 1)) |>
+  dplyr::arrange(
+    desc(win), desc(win_pct)) |>
+  dplyr::select(
+    team, win, loss, no_result, matches_total, win_pct)
 
-## Innings totals over time
+```
+
+```{r tabulate_team_rankings}
+
+team_rankings |>
+  gt::gt()
+
+```
+
+## Wickets
+
+## Runs: Innings totals
 
 ```{r wrangle_innings_totals}
 
@@ -388,24 +253,6 @@ innings_total_summary <- innings_totals |>
   )
 
 ```
-
-```{r plot_innings_totals_over_time}
-
-# Build plot
-plot_innings_totals_over_time <- ggplot2::ggplot() +
-  ggplot2::geom_boxplot(
-    data = innings_totals,
-    ggplot2::aes(
-      x = year, y = innings_total)) +
-  ggplot2::facet_grid(
-    innings_label ~ result_label)
-
-# Display plot
-plot_innings_totals_over_time
-
-```
-
-## Innings totals - pooled across tournaments
 
 ```{r plot_innings_totals_pooled, message = FALSE}
 
@@ -472,44 +319,7 @@ The team batting first has won:
 - 97% of matches when setting a target of 150 or above
 - 37% of matches when setting a target below 150
 
-## Capability to score 150+
-
-Number of innings per tournament with scores of 150+ (setting or chasing)
-
-```{r wrangle_freq_innings_above_150}
-
-freq_innings_above_150 <- innings_totals |>
-  dplyr::mutate(
-    flag_above_below_150 = dplyr::case_when(
-      innings_total >= 150 ~ "150+ runs",
-      innings_total < 150  ~ "< 150 runs")) |>
-  dplyr::group_by(year, flag_above_below_150) |>
-  dplyr::summarise(
-    n_innings = dplyr::n(),
-    .groups = "drop") |>
-  dplyr::group_by(year) |>
-  dplyr::mutate(
-    n_innings_in_tournament = sum(n_innings),
-    pct_of_innings_in_tournament = round(
-      n_innings / n_innings_in_tournament * 100, 0)) |>
-  dplyr::filter(flag_above_below_150 == "150+ runs")
-
-```
-
-```{r plot_freq_innings_above_150}
-
-# Build plot
-plot_freq_innings_above_150 <- ggplot2::ggplot() +
-  ggplot2::geom_bar(
-    data = freq_innings_above_150,
-    ggplot2::aes(
-      x = year, y = pct_of_innings_in_tournament),
-    stat = "identity")
-
-# Display plot
-plot_freq_innings_above_150
-
-```
+# Batting performance
 
 ## Boundary scoring rate
 
@@ -551,57 +361,6 @@ Compare teams that competed in at least 3 tournaments
 
 - Runs scored from boundaries
 - % of innings total from boundaries
-- Batting impact players
-
-## Teams ranked on tournament performance
-
-Rank on number of matches won, then win percentage
-
-```{r wrangle_team_rankings}
-
-team_rankings <- t20wc_match_ids |>
-  dplyr::select(
-    match_id, team1, team2, winner) |>
-  tidyr::pivot_longer(
-    cols = c("team1", "team2"),
-    names_to = "key",
-    values_to = "team") |>
-  dplyr::mutate(
-    result = dplyr::case_when(
-      is.na(winner)  ~ "no_result",
-      winner == team ~ "win",
-      winner != team ~ "loss")) |>
-  # Filter to teams in 3+ tournaments
-  dplyr::filter(
-    team %in% teams_in_3_plus_tournaments$value) |>
-  dplyr::select(
-    match_id, team, result) |>
-  dplyr::group_by(team, result) |>
-  dplyr::summarise(
-    n_matches = dplyr::n(),
-    .groups = "drop") |>
-  tidyr::pivot_wider(
-    id_cols = "team",
-    names_from = "result",
-    values_from = "n_matches",
-    values_fill = 0) |>
-  dplyr::mutate(
-    matches_total = win + loss + no_result,
-    win_pct = round(win / matches_total * 100, 1)) |>
-  dplyr::arrange(
-    desc(win), desc(win_pct)) |>
-  dplyr::select(
-    team, win, loss, no_result, matches_total, win_pct)
-
-```
-
-```{r tabulate_team_rankings}
-
-team_rankings |>
-  gt::gt()
-
-```
-
 
 ## Boundary scoring: Runs scored
 
@@ -682,86 +441,6 @@ plot_boundary_scoring_pct_of_innings <- ggplot2::ggplot() +
 
 # Display plot
 plot_boundary_scoring_pct_of_innings
-
-```
-
-## Batting impact players: # of boundaries
-
-- Boundary balls as a % of balls faced
-- Minimum 5 innings
-- Minimum 30 balls faced (5 overs total)
-
-```{r wrangle_batting_impact_players}
-
-# Identify batters that meet the exclusion criteria
-batting_impact_to_include <- boundary_scoring |>
-  # Account for name changes
-  dplyr::mutate(
-    striker_tidy = dplyr::case_when(
-      striker %in% c(
-        "KH Brunt", "KH Sciver-Brunt")  ~ "KH Sciver-Brunt",
-      striker %in% c(
-        "NR Sciver", "NR Sciver-Brunt") ~ "NR Sciver-Brunt",
-      TRUE                              ~ striker)) |>
-  dplyr::group_by(striker_tidy) |>
-  dplyr::mutate(
-    n_innings = length(unique(match_id)),
-    n_balls_faced = length(match_id)) |>
-  dplyr::ungroup() |>
-  dplyr::distinct(striker, .keep_all = TRUE) |>
-  # Apply exclusion criteria
-  dplyr::filter(
-    n_innings >= 5 & n_balls_faced >= 30) |>
-  dplyr::select(
-    batting_team, striker, n_innings, n_balls_faced)
-
-# Identify impact players with the bat
-batting_impact_players <- boundary_scoring |>
-  # Keep records for players that meet the inclusion criteria
-  dplyr::filter(striker %in% batting_impact_to_include$striker) |>
-  # Tidy up striker names
-  dplyr::mutate(
-    striker_tidy = dplyr::case_when(
-      striker == "NR Sciver"    ~ "NR Sciver-Brunt",
-      striker == "AC Jayangani" ~ "C Athapaththu",
-      TRUE                      ~ striker)) |>
-  dplyr::group_by(match_id, batting_team, striker_tidy) |>
-  dplyr::summarise(
-    n_boundaries = length(runs_off_bat),
-    runs_from_boundaries = sum(runs_off_bat),
-    .groups = "drop")
-
-```
-
-```{r plot_batting_impact_n_boundaries}
-
-# Build plot
-plot_batting_n_boundaries <- ggplot2::ggplot() +
-  ggplot2::geom_boxplot(
-    data = batting_impact_players,
-    ggplot2::aes(
-      x = n_boundaries, y = striker_tidy)) +
-  ggplot2::facet_wrap(~batting_team, scales = "free_y")
-
-# Display plot
-plot_batting_n_boundaries
-
-```
-
-## Batting impact players: Runs from boundaries
-
-```{r plot_batting_impact_runs_from_boundaries}
-
-# Build plot
-plot_batting_runs_from_boundaries <- ggplot2::ggplot() +
-  ggplot2::geom_boxplot(
-    data = batting_impact_players,
-    ggplot2::aes(
-      x = runs_from_boundaries, y = striker_tidy)) +
-  ggplot2::facet_wrap(~batting_team, scales = "free_y")
-
-# Display plot
-plot_batting_runs_from_boundaries
 
 ```
 
@@ -875,32 +554,6 @@ plot_top_3_wickets
 
 ```
 
-
-
-## Top & middle order wickets - first 5
-
-```{r wrangle_top_5_wickets}
-
-top_5_wickets <- wicket_focus |>
-  dplyr::filter(wickets_lost_yet == 5 & player_dismissed != "")
-
-```
-
-```{r plot_top_5_wickets}
-
-# Build plot
-plot_top_5_wickets <- ggplot2::ggplot() +
-  ggplot2::geom_boxplot(
-    data = top_5_wickets,
-    ggplot2::aes(
-      x = balls_bowled, y = bowling_team))
-
-# Display plot
-plot_top_5_wickets
-
-```
-
-
 ## Dot ball frequency
 
 ```{r wrangle_freq_dot_balls}
@@ -953,65 +606,10 @@ plot_freq_dot_balls
 
 ```
 
-
-## Limiting runs conceded from extras
-
-```{r wrangle_extras_conceded}
-
-extras_conceded <- t20wc_bbb_tidy |>
-  # Filter to teams that played in 3+ tournaments
-  dplyr::filter(bowling_team %in% teams_in_3_plus_tournaments$value) |>
-  dplyr::mutate(
-    innings_total = dplyr::case_when(
-      innings == 1 ~ innings1_total,
-      innings == 2 ~ innings2_total)) |>
-  # Count balls bowled
-  dplyr::group_by(match_id, bowling_team) |>
-  dplyr::mutate(
-    counting_var = 1,
-    balls_bowled = cumsum(counting_var)) |>
-  dplyr::summarise(
-    extras_total = sum(extras),
-    innings_total = max(innings_total),
-    .groups = "drop") |>
-  dplyr::mutate(
-    pct_of_innings_total = round(
-      extras_total / innings_total * 100, 1),
-    bowling_team = factor(
-      bowling_team,
-      levels = rev(c("Australia",
-                 "England",
-                 "India",
-                 "New Zealand",
-                 "South Africa",
-                 "West Indies",
-                 "Sri Lanka",
-                 "Pakistan",
-                 "Bangladesh"))))
-
-```
-
-```{r plot_extras_conceded}
-
-# Build plot
-plot_extras_conceded <- ggplot2::ggplot() +
-  ggplot2::geom_boxplot(
-    data = extras_conceded,
-    ggplot2::aes(
-      x = pct_of_innings_total, y = bowling_team))
-
-# Display plot
-plot_extras_conceded
-
-```
-
-**JT TO DO:** Split by wins and losses?
-
 ## Performance modelling
 
 Logistic regression - W/L
 
-- Relative difference in international experience (T20I games played)
 - Runs scored from boundaries
 - % of innings total scored from boundaries
 - Balls scored from as % of balls faced (excluding extras)
@@ -1021,47 +619,21 @@ Logistic regression - W/L
 ## Gaps in data
 
 Fielding data availability and range of metrics
+- Run outs
+- "Dropped" catches? (flagged in Sportradar data)
+- Runs saved?
 
 Hawkeye data limited for women's matches
 
 ## Extending the analysis
 
 - Strategic / campaign insights - tour timing and frequency, scheduling, familiarity with venue and surfaces, personnel changes (coaches / staff)
-- Deeper analysis of key opposition, using data from T20 internationals in addition to T20 World Cups / Comm Games (e.g., England, India, South Africa, New Zealand)
-- Data from Sportradar and possibly Hawkeye data if available for women's matches
+- Team composition / selection - international experience, player types (e.g., batting / bowling specialists, types of bowlers - pace / spin, all-rounders), playing list continuity
+- Deeper analysis of:
+     - Key opposition, using data from T20 internationals in addition to T20 World Cups / Comm Games (e.g., England, India, South Africa, New Zealand)
+     - Individual-level performances, identifying impact players with bat and ball, bowler-batter match-ups
+- Analysis of performance in game phases - e.g., Powerplay, middle overs, "death" overs
+- Data from Sportradar and possibly Hawkeye data if available for women's matches, enabling more granular analysis of:
+     - Bowling execution (pitch map, types of balls bowled)
+     - Distribution of scoring shots in different parts of the ground
 - Relevance of professional T20 leagues? Australia (WBBL), England (The Hundred), India (WPL), New Zealand (Super Smash)
-
-## Notes dump
-
-Descriptive analysis: Progression of standard metrics over multiple tournaments
-
-- Innings total when setting vs. chasing (wins and losses)
-- Batting averages
-- Batting strike rates
-- Boundary scoring rate
-
-Batting drill down
-
-- Batting anchor: "Build around Beth Mooney"
-- Building pressure with the bat:
-     - Capability to accelerate strike rate
-     - Turning over the strike
-     - Distribution of shots in different parts of the ground
-- Variety of contributors with bat and ball (minimising dependence on "star" players)
-
-Bowling pressure:
-
-- Wickets taken
-- Bowling strike rates
-- Extras bowled
-- Modes of dismissal
-- Spread of bowlers used
-- Dot balls, wickets, partnership bowling, variety
-     - Fielding / modes of dismissal
-     - Wickets in key phases (early innings Power Play, late innings / "death" overs?)
-
-Team make-up
-
-- Depth chart: Age distribution, international experience, World Cup experience / tournament continuity
-- All-rounders: Number selected and output with bat and ball
-- Stability of playing XI
