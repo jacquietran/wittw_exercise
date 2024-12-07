@@ -1,0 +1,1101 @@
+---
+title: "What It Takes To Win: Cricket - Women's T20"
+author: "Jacquie Tran | `r Sys.Date()`"
+format:
+  revealjs:
+    theme: [simple, custom.scss]
+    incremental: true
+    chalkboard: true
+---
+
+```{r setup}
+
+# Define document colours ------------------------------------------------------
+
+colours_light_grey <- "#CAC1BE"
+colours_amaranth <- "#9D1B39"
+colours_aquamarine <- "#15F4B5"
+colours_mint <- "#09C38E"
+
+```
+
+
+## Background
+
+- Cricket will be added to the Olympic program for LA 2028. The format is expected to be T20.
+- The Australian Women's cricket team has long been among the most successful international sides in world cricket.
+- With the professionalisation of women's cricket growing globally, more nations are challenging the Australian Women's team in major events **(see: T20 World Cup 2024, won by New Zealand)**
+
+## Key rules of T20 cricket
+
+- Two teams of 11 players each. Teams take turns to bat and bowl.
+- In the T20 format, teams will complete one innings of each mode.
+- A standard innings is made up of 20 overs, with each over consisting of 6 regulation balls bowled, i.e., 120 regulation balls in total.
+     - Non-regulation balls are called "extras" and concede runs when bowled.
+- An innings ends when all regulation balls have been bowled, or when the batting side has lost all 10 wickets (batting must be done in partnerships).
+- A match result is achieved when:
+     - The team that bats 1st sets a target that the team batting 2nd does not chase down before the end of their innings, or
+     - The team that bats 2nd successfully chases the target set by the team that batted 1st, with at least 1 wicket still in hand.
+
+## Bottom Line Up Front
+
+From this exploratory analysis of game data from T20 World Cup tournament play, these factors appear related to winning in Women's T20 cricket:
+
+**Batting**
+
+- Point 1
+- Point 2
+- Point 3
+
+**Bowling**
+
+- Point 1
+- Point 2
+- Point 3
+
+# Methods
+
+## Caveat: Only a slice of "What It Takes To Win"
+
+This quantitative analysis uses publicly available competition and game data only
+
+Other factors are critical to performance but not reflected in public data, and would benefit from mixed methods analysis, for example:
+
+- Daily training measures
+- Measures of training state and performance: Physiological, biomechanical, physical, psychological
+- "Tight team": Trusted relationships between athletes, coaches, and support team
+
+## Overview of analytical approach
+
+**Game outcomes**
+
+- Wickets
+- Runs scored
+
+**Performance measures**
+
+- Scoring: *"Batting performance characteristics appear to be more important than bowling characteristics, which is even more pronounced in women's T20 cricket."* ([Bhardwaj & Dwyer, 2022](https://doi.org/10.1080/24748668.2022.2045820))
+
+- "Tempo": Bowlers increasing pressure on the batting team by challenging finite resources (balls and wickets)
+
+*Note: The 3rd part of the game, fielding, has not been included in this analysis, due to limited fielding-specific measures available. Fielding is part of a bowling innings.*
+
+## Data source
+
+```{r retrieve_data, cache = TRUE, message = FALSE}
+
+# Obtain match IDs for Women's T20 World Cup tournaments or the 2022
+# Commonwealth Games
+t20wc_match_ids <- cricketdata::fetch_cricsheet(
+  type = "match",
+  gender = "female",
+  competition = "t20s") |>
+  # Filter to World Cup matches
+  dplyr::filter(
+    event %in% c(
+      "ICC Women's T20 World Cup",
+      "Commonwealth Games Women's Cricket Competition"))
+
+# Retrieve ball-by-ball data, filtering to keep only matches from T20 World Cups
+# or the 2022 Commonwealth Games
+t20wc_bbb <- cricketdata::fetch_cricsheet(
+  type = "bbb",
+  gender = "female",
+  competition = "t20s") |>
+  # Filter to World Cup matches
+  dplyr::filter(
+    match_id %in% t20wc_match_ids$match_id)
+
+```
+
+```{r tidy_data}
+
+# Tidy match IDs data frame
+t20wc_match_ids_tidy <- t20wc_match_ids |>
+  dplyr::mutate(
+    match_id = as.numeric(match_id)) |>
+  dplyr::select(
+    match_id, event, winner, winner_runs, winner_wickets)
+
+# Merge data frames together and tidy ball-by-ball data
+t20wc_bbb_tidy <- dplyr::left_join(
+  t20wc_bbb, t20wc_match_ids_tidy, by = "match_id") |>
+  dplyr::mutate(
+    year = stringr::str_sub(start_date, start = 1, end = 4)) |>
+  dplyr::select(
+    match_id, season, year, event, start_date, dplyr::starts_with("winner"),
+    innings, over, ball, dplyr::ends_with("_team"), dplyr::contains("striker"),
+    bowler, runs_off_bat, extras, ball_in_over, extra_ball, balls_remaining,
+    runs_scored_yet, wicket, wickets_lost_yet, dplyr::ends_with("_total"),
+    wides, noballs, byes, legbyes, penalty, wicket_type, player_dismissed,
+    other_wicket_type, other_player_dismissed)
+
+```
+
+```{r calculate_sample_characteristics}
+
+# Count all matches
+count_all_matches <- t20wc_match_ids_tidy |>
+  dplyr::summarise(n = dplyr::n()) |>
+  dplyr::pull(n)
+
+# Count the number of matches with a result
+count_matches_with_result <- t20wc_match_ids_tidy |>
+  dplyr::filter(!is.na(winner)) |>
+  dplyr::summarise(n = dplyr::n()) |>
+  dplyr::pull(n)
+
+# Count the number of teams represented
+count_number_of_teams <- t20wc_bbb_tidy |>
+  dplyr::distinct(batting_team) |>
+  dplyr::summarise(n = dplyr::n()) |>
+  dplyr::pull(n)
+
+```
+
+This analysis draws on ball-by-ball data from international women's T20 tournaments from 2018 to 2024, specifically including:
+
+- Women's T20 World Cup tournaments held in 2018, 2020, 2023, and 2024
+- The Birmingham 2022 Commonwealth Games
+- Time span reflects the extent of publicly available ball-by-ball data
+     
+Data obtained from [Cricsheet.org](https://cricsheet.org) using the `{cricketdata}` R package:
+
+- `r count_matches_with_result` matches with a result (`r count_all_matches - count_matches_with_result` match excluded from analysis of performance indicators due to no result)
+- `r count_number_of_teams` teams across the 5 tournaments in the data set
+
+# Game outcomes
+
+High-level performance outcomes
+
+## Ranking teams on match outcomes
+
+Ranked by tournament wins, then win percentage, then losses (ascending)
+
+```{r wrangle_team_rankings}
+
+# Count number of tournaments played by each team
+teams_tournament_count <- t20wc_match_ids |>
+  dplyr::mutate(
+    year = stringr::str_sub(date, start = 1, end = 4)) |>
+  dplyr::select(
+    year, match_id, team1, team2) |>
+  tidyr::pivot_longer(
+    cols = c("team1", "team2"),
+    names_to = "key",
+    values_to = "team") |>
+  dplyr::select(
+    year, team) |>
+  dplyr::group_by(year) |>
+  dplyr::distinct(team, .keep_all = TRUE) |>
+  dplyr::ungroup() |>
+  dplyr::group_by(team) |>
+  dplyr::summarise(
+    n_tournaments = dplyr::n(),
+    .groups = "drop")
+
+# Summarise match results for each team
+team_match_outcomes <- t20wc_match_ids |>
+  dplyr::select(
+    match_id, team1, team2, winner) |>
+  tidyr::pivot_longer(
+    cols = c("team1", "team2"),
+    names_to = "key",
+    values_to = "team") |>
+  dplyr::mutate(
+    result = dplyr::case_when(
+      is.na(winner)  ~ "no_result",
+      winner == team ~ "win",
+      winner != team ~ "loss")) |>
+  dplyr::select(
+    match_id, team, result) |>
+  dplyr::group_by(team, result) |>
+  dplyr::summarise(
+    n_matches = dplyr::n(),
+    .groups = "drop") |>
+  tidyr::pivot_wider(
+    id_cols = "team",
+    names_from = "result",
+    values_from = "n_matches",
+    values_fill = 0) |>
+  dplyr::mutate(
+    matches_total = win + loss + no_result,
+    win_pct = round(win / matches_total * 100, 1)) |>
+  dplyr::select(
+    team, win, loss, no_result, matches_total, win_pct)
+
+# Merge tournaments count with match outcomes
+team_outcomes_tidy <- dplyr::left_join(
+  teams_tournament_count, team_match_outcomes,
+  by = "team") |>
+  dplyr::arrange(
+    desc(win), desc(win_pct), loss) |>
+  # Add emojis to denote trophies won, finalists, and medallists
+  dplyr::mutate(
+    team_label = dplyr::case_when(
+      team == "Australia"    ~ paste0(
+        team, " ", emoji::emoji("trophy"), emoji::emoji("trophy"),
+        emoji::emoji("trophy"), emoji::emoji("1st_place_medal")),
+      team == "New Zealand"  ~ paste0(
+        team, " ", emoji::emoji("trophy"), emoji::emoji("3rd_place_medal")),
+      team == "India"        ~ paste0(
+        team, " ", emoji::emoji("chequered_flag"), emoji::emoji("2nd_place_medal")),
+      team == "England"      ~ paste0(
+        team, " ", emoji::emoji("chequered_flag")),
+      team == "South Africa" ~ paste0(
+        team, " ", emoji::emoji("chequered_flag"),
+        emoji::emoji("chequered_flag")),
+      TRUE                ~ team)) |>
+  dplyr::relocate(team_label)
+
+```
+
+```{r tabulate_team_outcomes_tidy}
+
+team_outcomes_tidy |>
+  dplyr::select(-team) |>
+  gt::gt() |>
+  gt::cols_label(
+    team_label = "",
+    n_tournaments = "# of tournaments",
+    win = "Wins",
+    loss = "Losses",
+    no_result = "No result",
+    matches_total = "Total matches",
+    win_pct = "Win %") |>
+  gt::tab_style(
+    style = gt::cell_text(weight = "bold"),
+    locations = gt::cells_column_labels()) |>
+  gt::data_color(
+    columns = win,
+    method = "numeric",
+    palette = c(colours_amaranth, colours_aquamarine),
+    domain = c(
+      min(team_outcomes_tidy$win), max(team_outcomes_tidy$win))) |>
+  gt::data_color(
+    columns = win_pct,
+    method = "numeric",
+    palette = c(colours_amaranth, colours_aquamarine),
+    domain = c(
+      min(team_outcomes_tidy$win_pct), max(team_outcomes_tidy$win_pct))) |>
+  gt::data_color(
+    columns = loss,
+    method = "numeric",
+    palette = c(colours_aquamarine, colours_amaranth),
+    domain = c(
+      min(team_outcomes_tidy$loss), max(team_outcomes_tidy$loss)))
+
+```
+
+
+
+## Ranking teams on wins - superceded
+
+Rank on number of matches won, then win percentage
+
+```{r wrangle_teams_in_3_plus_tournaments}
+
+# First, identify teams that played in 3+ tournaments
+teams_in_3_plus_tournaments <- t20wc_match_ids |>
+  dplyr::select(
+    date, team1, team2) |>
+  dplyr::mutate(
+    year = stringr::str_sub(date, start = 1, end = 4)) |>
+  dplyr::select(
+    year, team1, team2) |>
+  tidyr::pivot_longer(
+    cols = c("team1", "team2"),
+    names_to = "key",
+    values_to = "value") |>
+  dplyr::select(-key) |>
+  dplyr::group_by(year) |>
+  dplyr::distinct(value, .keep_all = TRUE) |>
+  dplyr::ungroup() |>
+  dplyr::group_by(value) |>
+  dplyr::summarise(
+    n_tournaments = dplyr::n(),
+    .groups = "drop") |>
+  dplyr::filter(n_tournaments >= 3)
+
+```
+
+
+```{r wrangle_team_rankings_superceded, eval = FALSE}
+
+team_rankings <- t20wc_match_ids |>
+  dplyr::select(
+    match_id, team1, team2, winner) |>
+  tidyr::pivot_longer(
+    cols = c("team1", "team2"),
+    names_to = "key",
+    values_to = "team") |>
+  dplyr::mutate(
+    result = dplyr::case_when(
+      is.na(winner)  ~ "no_result",
+      winner == team ~ "win",
+      winner != team ~ "loss")) |>
+  # Filter to teams in 3+ tournaments
+  dplyr::filter(
+    team %in% teams_in_3_plus_tournaments$value) |>
+  dplyr::select(
+    match_id, team, result) |>
+  dplyr::group_by(team, result) |>
+  dplyr::summarise(
+    n_matches = dplyr::n(),
+    .groups = "drop") |>
+  tidyr::pivot_wider(
+    id_cols = "team",
+    names_from = "result",
+    values_from = "n_matches",
+    values_fill = 0) |>
+  dplyr::mutate(
+    matches_total = win + loss + no_result,
+    win_pct = round(win / matches_total * 100, 1)) |>
+  dplyr::arrange(
+    desc(win), desc(win_pct)) |>
+  dplyr::select(
+    team, win, loss, no_result, matches_total, win_pct)
+
+```
+
+```{r tabulate_team_rankings, eval = FALSE}
+
+team_rankings |>
+  gt::gt()
+
+```
+
+## Wickets taken in wins vs. losses
+
+```{r wrangle_wickets_summary}
+
+# Isolate wickets taken from ball-by-ball data
+wickets_summary <- t20wc_bbb_tidy |>
+  dplyr::filter(!is.na(winner)) |> # Exclude matches with no results
+  dplyr::filter(wicket == TRUE) |>
+  dplyr::select(
+    year, match_id, winner, bowling_team, batting_team, innings, wicket) |>
+  dplyr::group_by(
+    year, match_id, winner, innings, bowling_team) |>
+  dplyr::summarise(
+    n_wickets = length(wicket),
+    .groups = "drop") |>
+  dplyr::mutate(
+    flag_bowling_team_result = dplyr::case_when(
+      winner == bowling_team ~ 1,
+      winner != bowling_team ~ 0),
+    bowling_team_result_label = dplyr::case_when(
+      flag_bowling_team_result == 1 ~ "Win",
+      flag_bowling_team_result == 0 ~ "Loss"),
+    innings_label = dplyr::case_when(
+      innings == 1 ~ "Bowling 1st",
+      innings == 2 ~ "Bowling 2nd"))
+
+# Calculate median wickets taken in wins and losses, when bowling 1st and 2nd
+wickets_medians <- wickets_summary |>
+  dplyr::group_by(innings_label, flag_bowling_team_result) |>
+  dplyr::summarise(
+    n_wickets = median(n_wickets),
+    .groups = "drop")
+
+```
+
+```{r plot_wickets_summary, fig.height = 3.5, message = FALSE}
+
+# Build plot
+plot_wickets_summary <- ggplot2::ggplot() +
+  ggplot2::geom_linerange(
+    data = wickets_medians,
+    ggplot2::aes(
+      x = n_wickets, ymin = flag_bowling_team_result + 0.5,
+      ymax = flag_bowling_team_result + 1.5),
+    linewidth = 1.2) +
+  ggbeeswarm::geom_quasirandom(
+    data = wickets_summary,
+    ggplot2::aes(
+      x = n_wickets, y = factor(flag_bowling_team_result),
+      group = flag_bowling_team_result,
+      colour = factor(flag_bowling_team_result)),
+    groupOnX = FALSE, size = 3.5, alpha = 0.7, shape = 19, stroke = NA) +
+  ggplot2::facet_wrap(~innings_label) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 10),
+    breaks = seq(0, 10, by = 2)) +
+  ggplot2::scale_y_discrete(
+    labels = c(
+      "1" = "Win",
+      "0" = "Loss")) +
+  ggplot2::scale_colour_manual(
+    values = c(
+      "1" = colours_mint,
+      "0" = colours_amaranth)) +
+  ggplot2::labs(
+    x = "Wickets taken", y = NULL) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "none",
+    panel.grid.major.y = ggplot2::element_blank(),
+    panel.grid.minor.x = ggplot2::element_blank(),
+    panel.spacing = grid::unit(2, "lines"),
+    strip.text = ggplot2::element_text(
+      size = ggplot2::rel(1.4), face = "bold"),
+    strip.background = ggplot2::element_rect(
+      colour = colours_light_grey, fill = colours_light_grey),
+    axis.title.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(t = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6)),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), face = "bold")
+  )
+
+# Display plot
+plot_wickets_summary
+
+```
+
+## Another way to consider wickets
+
+```{r wrangle_wickets_and_win_pct}
+
+# Determine % games won / lost based on categorical grouping of wickets taken
+wickets_and_win_pct <- wickets_summary |>
+  dplyr::mutate(
+    wickets_category = dplyr::case_when(
+      innings == 1 & n_wickets >= 7 ~ "7+ wickets",
+      innings == 1 & n_wickets < 7  ~ "< 7 wickets",
+      innings == 2 & n_wickets >= 5 ~ "5+ wickets",
+      innings == 2 & n_wickets < 5  ~ "< 5 wickets")) |>
+  dplyr::group_by(
+    innings_label, wickets_category, bowling_team_result_label) |>
+  dplyr::summarise(
+    n_matches = dplyr::n(),
+    .groups = "drop") |>
+  dplyr::group_by(
+    innings_label, wickets_category) |>
+  dplyr::mutate(
+    subtotal_matches = sum(n_matches)) |>
+  dplyr::ungroup() |>
+  dplyr::mutate(
+    matches_as_pct_subtotal = round(
+      n_matches / subtotal_matches * 100, 0),
+    n_label = paste0("n = ", n_matches),
+    pct_label = paste0(matches_as_pct_subtotal, "%"),
+    combined_label = dplyr::case_when(
+      wickets_category == "< 5 wickets" &
+        bowling_team_result_label == "Win" ~ paste0(
+          pct_label, ", ", n_label),
+      TRUE                                 ~ paste0(
+        pct_label, "\n", n_label))) |>
+  dplyr::group_by(wickets_category) |>
+  dplyr::arrange(
+    wickets_category, desc(bowling_team_result_label)) |>
+  dplyr::mutate(
+    lab_xpos = cumsum(matches_as_pct_subtotal) - 0.5 * matches_as_pct_subtotal) |>
+  dplyr::ungroup()
+
+```
+
+```{r plot_wrangle_wickets_and_win_pct, fig.height = 3.5}
+
+# Build plot
+plot_wrangle_wickets_and_win_pct <- ggplot2::ggplot() +
+  ggplot2::geom_bar(
+    data = wickets_and_win_pct,
+    ggplot2::aes(
+      x = matches_as_pct_subtotal, y = wickets_category,
+      fill = bowling_team_result_label),
+    position = "stack", stat = "identity", width = 0.7) +
+  ggplot2::geom_text(
+    data = wickets_and_win_pct |>
+      dplyr::filter(
+        bowling_team_result_label == "Win" &
+          wickets_category != "< 5 wickets"),
+    ggplot2::aes(
+      x = lab_xpos, y = wickets_category, label = combined_label),
+    size = 4, fontface = "bold", lineheight = 0.9) +
+  ggplot2::geom_text(
+    data = wickets_and_win_pct |>
+      dplyr::filter(
+        bowling_team_result_label == "Win" &
+          wickets_category == "< 5 wickets"),
+    ggplot2::aes(
+      x = lab_xpos, y = wickets_category, label = combined_label),
+    size = 4, fontface = "bold", lineheight = 0.9,
+    nudge_x = 8, nudge_y = 0.45) +
+  ggplot2::geom_text(
+    data = wickets_and_win_pct |>
+      dplyr::filter(
+        bowling_team_result_label == "Loss" &
+          wickets_category != "5+ wickets"),
+    ggplot2::aes(
+      x = lab_xpos, y = wickets_category, label = combined_label),
+    size = 4, fontface = "bold", lineheight = 0.9, colour = "#FFFFFF") +
+  ggplot2::geom_text(
+    data = wickets_and_win_pct |>
+      dplyr::filter(
+        bowling_team_result_label == "Loss" &
+          wickets_category == "5+ wickets"),
+    ggplot2::aes(
+      x = lab_xpos, y = wickets_category, label = combined_label),
+    size = 3, fontface = "bold", lineheight = 0.9, colour = "#FFFFFF") +
+  ggplot2::facet_wrap(~innings_label, scales = "free_y") +
+  ggplot2::scale_fill_manual(
+    values = c(
+      "Win"  = colours_mint,
+      "Loss" = colours_amaranth)) +
+  ggplot2::labs(x = NULL, y = NULL) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "top",
+    legend.title = ggplot2::element_blank(),
+    legend.text = ggplot2::element_text(
+      size = ggplot2::rel(1.2)),
+    legend.key.spacing.x = grid::unit(15, "pt"),
+    panel.grid.major = ggplot2::element_blank(),
+    panel.grid.minor = ggplot2::element_blank(),
+    panel.spacing = grid::unit(2, "lines"),
+    strip.text = ggplot2::element_text(
+      size = ggplot2::rel(1.4), face = "bold"),
+    strip.background = ggplot2::element_rect(
+      colour = colours_light_grey, fill = colours_light_grey),
+    axis.title.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(t = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_blank(),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), face = "bold")) +
+  ggplot2::guides(
+    fill = ggplot2::guide_legend(reverse = TRUE))
+
+# Display plot
+plot_wrangle_wickets_and_win_pct
+
+```
+
+Teams generally went on to win the game when...
+
+- Bowling 1st and taking 7+ wickets
+- Bowling 2nd and taking 5+ wickets
+- These bowling stats also seem to reflect how batting teams approach an innings when setting (aggressive) vs. chasing (conservative)
+
+## Wickets in phases
+
+```{r wrangle_wickets_in_phases}
+
+wickets_in_phases <- t20wc_bbb_tidy |>
+  dplyr::filter(!is.na(winner)) |> # Exclude matches with no results
+  dplyr::filter(wicket == TRUE) |>
+  dplyr::select(
+    year, match_id, winner, bowling_team, batting_team, innings, over, wicket) |>
+  dplyr::mutate(
+    phase_of_innings = dplyr::case_when(
+      over >= 1 & over <= 6  ~ "Powerplay",
+      over >= 7 & over <= 15 ~ "Consolidation phase",
+      over >= 16             ~ "Death overs")) |>
+  dplyr::group_by(
+    year, match_id, winner, bowling_team, phase_of_innings) |>
+  dplyr::summarise(
+    n_wickets = length(wicket),
+    .groups = "drop") |>
+  dplyr::mutate(
+    flag_bowling_team_result = dplyr::case_when(
+      winner == bowling_team ~ 1,
+      winner != bowling_team ~ 0),
+    bowling_team_result_label = dplyr::case_when(
+      flag_bowling_team_result == 1 ~ "Win",
+      flag_bowling_team_result == 0 ~ "Loss"),
+    phase_of_innings = factor(
+      phase_of_innings,
+      levels = c("Powerplay", "Consolidation phase", "Death overs")),
+    bowling_team_result_label = factor(
+      bowling_team_result_label,
+      levels = c("Win", "Loss")))
+
+```
+
+```{r plot_wickets_in_phases}
+
+# Build plot
+plot_wickets_in_phases <- ggplot2::ggplot() +
+  ggplot2::geom_boxplot(
+    data = wickets_in_phases,
+    ggplot2::aes(
+      x = phase_of_innings, y = n_wickets, group = phase_of_innings,
+      colour = bowling_team_result_label, fill = bowling_team_result_label),
+    outlier.shape = NA, width = 0.7, alpha = 0.2, linewidth = 1.25,
+    fatten = 2.5) +
+  ggplot2::facet_wrap(~bowling_team_result_label) +
+  ggplot2::scale_x_discrete(
+    labels = c(
+      c("Powerplay\n(overs 1-6)",
+        "Consolidation\n(overs 7-15)",
+        "Death overs\n(overs 16-20)"))) +
+  ggplot2::scale_colour_manual(
+    values = c(
+      "Win" = colours_mint,
+      "Loss" = colours_amaranth)) +
+  ggplot2::scale_fill_manual(
+    values = c(
+      "Win" = colours_mint,
+      "Loss" = colours_amaranth)) +
+  ggplot2::labs(
+    x = NULL, y = "Number of wickets taken") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "none",
+    panel.grid.major.x = ggplot2::element_blank(),
+    panel.grid.minor = ggplot2::element_blank(),
+    panel.spacing = grid::unit(2, "lines"),
+    strip.text = ggplot2::element_text(
+      size = ggplot2::rel(1.4), face = "bold"),
+    strip.background = ggplot2::element_rect(
+      colour = colours_light_grey, fill = colours_light_grey),
+    axis.title.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(r = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_text(
+      size = ggplot2::rel(1.4)),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6))
+  )
+
+# Display plot
+plot_wickets_in_phases
+
+```
+
+
+## Runs: Innings totals
+
+```{r wrangle_innings_totals}
+
+innings_totals <- t20wc_bbb_tidy |>
+  dplyr::select(
+    match_id, year, winner, innings, batting_team, runs_scored_yet) |>
+  dplyr::group_by(
+    match_id, year, winner, innings, batting_team) |>
+  dplyr::summarise(
+    innings_total = max(runs_scored_yet),
+    .groups = "drop") |>
+  dplyr::mutate(
+    result_for_batting_team = dplyr::case_when(
+      winner == batting_team ~ 1,
+      TRUE                   ~ 0)) |>
+  # Filter out matches with no result
+  dplyr::filter(match_id != 1173066) |>
+  dplyr::mutate(
+    innings_label = dplyr::case_when(
+      innings == 1 ~ "Setting",
+      innings == 2 ~ "Chasing"),
+    result_label = dplyr::case_when(
+      result_for_batting_team == 1 ~ "Win",
+      result_for_batting_team == 0 ~ "Loss"),
+    innings_label = factor(
+      innings_label,
+      levels = c("Setting", "Chasing")),
+    result_label = factor(
+      result_label,
+      levels = c("Win", "Loss"))
+    )
+
+```
+
+- Sample: `r length(innings_totals$match_id)` matches from `r length(unique(t20wc_bbb_tidy$year))` tournaments
+- 1 match excluded due to no result (rained out)
+
+```{r analyse_innings_totals}
+
+# Calculate median winning and losing innings totals,
+# when chasing and setting
+innings_total_summary <- innings_totals |>
+  dplyr::group_by(
+    year, innings_label, result_label) |>
+  dplyr::summarise(
+    innings_total_median = median(innings_total),
+    .groups = "drop"
+  )
+
+```
+
+```{r plot_innings_totals_pooled, message = FALSE}
+
+ggplot2::ggplot() +
+  ggplot2::geom_violin(
+    data = innings_totals,
+    ggplot2::aes(
+      x = innings_total, y = result_for_batting_team,
+      group = result_for_batting_team)) +
+  ggbeeswarm::geom_quasirandom(
+    data = innings_totals,
+    ggplot2::aes(
+      x = innings_total, y = result_for_batting_team,
+      group = result_for_batting_team),
+    groupOnX = FALSE, varwidth = TRUE,
+    method = "pseudorandom", cex = 2.5) +
+  ggplot2::facet_wrap(~innings_label)
+
+```
+ 
+- Wide variability in totals when setting, but ~150 runs seems important.
+ - No discernible difference in chasing totals between winning and losing teams (To be expected - because the winning target is set by the team that bats first)
+ 
+## Setting a total above / below 150
+ 
+```{r analyse_innings_above_below_150}
+
+# Focus on setting innings only
+innings_above_below_150 <- innings_totals |>
+  dplyr::filter(innings == 1) |>
+  dplyr::mutate(
+    flag_above_below_150 = dplyr::case_when(
+      innings_total >= 150 ~ "150+ runs",
+      innings_total < 150  ~ "< 150 runs")) |>
+  dplyr::group_by(
+    result_label, flag_above_below_150) |>
+  dplyr::summarise(
+    n_innings = dplyr::n(),
+    .groups = "drop")
+
+```
+
+```{r plot_innings_above_below_150, message = FALSE}
+
+# Build plot
+plot_innings_above_below_150 <- ggplot2::ggplot() +
+  ggbeeswarm::geom_quasirandom(
+    data = innings_totals |>
+      dplyr::filter(innings_label == "Setting"),
+    ggplot2::aes(
+      x = innings_total, y = result_for_batting_team,
+      group = result_for_batting_team, colour = innings_total >= 150),
+    groupOnX = FALSE, varwidth = TRUE,
+    method = "pseudorandom", cex = 2.5)
+
+# Display plot
+plot_innings_above_below_150
+
+```
+
+
+The team batting first has won:
+
+- 97% of matches when setting a target of 150 or above
+- 37% of matches when setting a target below 150
+
+# Batting performance
+
+## Boundary scoring rate
+
+Note: Cricsheet data does not flag boundary-scoring balls, as such. For this analysis, I am working under the assumption that "runs off bat" of 4 or 6 are boundaries. It is technically possible to run 4 or 6 runs off one ball (say, with overthrows), but these are rare occurrences.
+
+```{r wrangle_boundary_scoring}
+
+# First, identify teams that played in 3+ tournaments
+teams_in_3_plus_tournaments <- t20wc_match_ids |>
+  dplyr::select(
+    date, team1, team2) |>
+  dplyr::mutate(
+    year = stringr::str_sub(date, start = 1, end = 4)) |>
+  dplyr::select(
+    year, team1, team2) |>
+  tidyr::pivot_longer(
+    cols = c("team1", "team2"),
+    names_to = "key",
+    values_to = "value") |>
+  dplyr::select(-key) |>
+  dplyr::group_by(year) |>
+  dplyr::distinct(value, .keep_all = TRUE) |>
+  dplyr::ungroup() |>
+  dplyr::group_by(value) |>
+  dplyr::summarise(
+    n_tournaments = dplyr::n(),
+    .groups = "drop") |>
+  dplyr::filter(n_tournaments >= 3)
+
+# Filter ball-by-ball to boundary-scoring balls
+boundary_scoring <- t20wc_bbb_tidy |>
+  dplyr::filter(runs_off_bat %in% c(4, 6)) |>
+  # Filter to teams that played in 3+ tournaments
+  dplyr::filter(batting_team %in% teams_in_3_plus_tournaments$value)
+
+```
+
+Compare teams that competed in at least 3 tournaments
+
+- Runs scored from boundaries
+- % of innings total from boundaries
+
+## Boundary scoring: Runs scored
+
+```{r wrangle_boundary_scoring_runs}
+
+boundary_scoring_runs <- boundary_scoring |>
+  dplyr::select(
+    match_id, year, winner, innings, batting_team, dplyr::ends_with("_total"), 
+    striker, runs_off_bat) |>
+  dplyr::mutate(
+    innings_total = dplyr::case_when(
+      innings == 1 ~ innings1_total,
+      innings == 2 ~ innings2_total),
+    innings_label = dplyr::case_when(
+      innings == 1 ~ "Setting",
+      innings == 2 ~ "Chasing"),
+    result_for_batting_team = dplyr::case_when(
+      winner == batting_team ~ 1,
+      TRUE                   ~ 0),
+    innings_label = factor(
+      innings_label,
+      levels = c("Setting", "Chasing")),
+    result_label = dplyr::case_when(
+      result_for_batting_team == 1 ~ "Win",
+      result_for_batting_team == 0 ~ "Loss"),
+    result_label = factor(
+      result_label, levels = c("Loss", "Win")),
+    batting_team = factor(
+      batting_team,
+      levels = c("Australia",
+                 "England",
+                 "India",
+                 "New Zealand",
+                 "South Africa",
+                 "West Indies",
+                 "Sri Lanka",
+                 "Pakistan",
+                 "Bangladesh"))) |>
+  dplyr::group_by(
+    match_id, year, batting_team, result_label, innings_label, innings_total) |>
+  dplyr::summarise(
+    count_boundaries = length(runs_off_bat),
+    runs_from_boundaries = sum(runs_off_bat),
+    .groups = "drop") |>
+  dplyr::mutate(
+    pct_of_innings_total = round(
+      runs_from_boundaries / innings_total * 100, 0)
+  )
+
+```
+
+```{r plot_boundary_scoring_runs}
+
+# Build plot
+plot_boundary_scoring_runs <- ggplot2::ggplot() +
+  ggplot2::geom_boxplot(
+    data = boundary_scoring_runs,
+    ggplot2::aes(
+      x = runs_from_boundaries, y = result_label)) +
+  ggplot2::facet_wrap(~batting_team)
+
+# Display plot
+plot_boundary_scoring_runs
+
+```
+
+## Boundary scoring: Runs scored as % of innings total
+
+```{r plot_boundary_scoring_pct_of_innings}
+
+# Build plot
+plot_boundary_scoring_pct_of_innings <- ggplot2::ggplot() +
+  ggplot2::geom_boxplot(
+    data = boundary_scoring_runs,
+    ggplot2::aes(
+      x = pct_of_innings_total, y = result_label)) +
+  ggplot2::facet_wrap(~batting_team)
+
+# Display plot
+plot_boundary_scoring_pct_of_innings
+
+```
+
+## Building scoreboard pressure
+
+Turning over the strike - balls scored from as % of balls faced (excluding extras)
+
+```{r wrangle_turning_over_strike}
+
+turning_over_strike <- t20wc_bbb_tidy |>
+  # Filter to teams that played in 3+ tournaments
+  dplyr::filter(batting_team %in% teams_in_3_plus_tournaments$value) |>
+  dplyr::mutate(
+    flag_runs_off_bat = dplyr::case_when(
+      runs_off_bat > 0 ~ 1,
+      TRUE             ~ 0)) |>
+  dplyr::group_by(year, match_id, batting_team) |>
+  dplyr::summarise(
+    balls_scored_from = sum(flag_runs_off_bat),
+    balls_faced = length(match_id),
+    .groups = "drop") |>
+  dplyr::mutate(
+    pct_of_balls_faced = round(
+      balls_scored_from / balls_faced * 100, 0),
+    batting_team = factor(
+      batting_team,
+      levels = c("Australia",
+                 "England",
+                 "India",
+                 "New Zealand",
+                 "South Africa",
+                 "West Indies",
+                 "Sri Lanka",
+                 "Pakistan",
+                 "Bangladesh")))
+
+```
+
+```{r plot_turning_over_strike}
+
+# Build plot
+plot_turning_over_strike <- ggplot2::ggplot() +
+  ggplot2::geom_boxplot(
+    data = turning_over_strike,
+    ggplot2::aes(
+      x = year, y = pct_of_balls_faced)) +
+  ggplot2::facet_wrap(~batting_team)
+
+# Display plot
+plot_turning_over_strike
+
+```
+
+The more successful teams are capable of consistently scoring off ~60% of balls faced (not including runs from extras).
+
+# Bowling performance
+
+## Top order wickets - first 3
+
+How quickly are the top order batters removed?
+
+> "The most important bowling characteristic relate to how quickly the first 3 to 5 batters are dismissed." ([Bhardwaj & Dwyer, 2022](https://doi.org/10.1080/24748668.2022.2045820))
+
+```{r wrangle_wicket_focus}
+
+wicket_focus <- t20wc_bbb_tidy |>
+  # Filter to teams that played in 3+ tournaments
+  dplyr::filter(bowling_team %in% teams_in_3_plus_tournaments$value) |>
+  # Count balls bowled
+  dplyr::group_by(match_id, bowling_team) |>
+  dplyr::mutate(
+    counting_var = 1,
+    balls_bowled = cumsum(counting_var)) |>
+  dplyr::ungroup() |>
+  dplyr::select(
+    match_id, year, winner, bowling_team, innings, over, ball, balls_bowled,
+    bowler, wicket, wickets_lost_yet, wicket_type, player_dismissed) |>
+  dplyr::mutate(
+    bowling_team = factor(
+      bowling_team,
+      levels = rev(c("Australia",
+                 "England",
+                 "India",
+                 "New Zealand",
+                 "South Africa",
+                 "West Indies",
+                 "Sri Lanka",
+                 "Pakistan",
+                 "Bangladesh"))))
+
+```
+
+```{r wrangle_top_3_wickets}
+
+top_3_wickets <- wicket_focus |>
+  dplyr::filter(wickets_lost_yet == 3 & player_dismissed != "")
+
+```
+
+```{r plot_top_3_wickets}
+
+# Build plot
+plot_top_3_wickets <- ggplot2::ggplot() +
+  ggplot2::geom_boxplot(
+    data = top_3_wickets,
+    ggplot2::aes(
+      x = balls_bowled, y = bowling_team))
+
+# Display plot
+plot_top_3_wickets
+
+```
+
+## Dot ball frequency
+
+```{r wrangle_freq_dot_balls}
+
+freq_dot_balls <- t20wc_bbb_tidy |>
+  # Filter to teams that played in 3+ tournaments
+  dplyr::filter(bowling_team %in% teams_in_3_plus_tournaments$value) |>
+  # Count balls bowled
+  dplyr::group_by(match_id, bowling_team) |>
+  dplyr::mutate(
+    counting_var = 1,
+    balls_bowled = cumsum(counting_var),
+    # Identify dot balls - no runs scored by any method
+    flag_dot_balls = dplyr::case_when(
+      runs_off_bat == 0 & extras == 0 ~ 1,
+      TRUE                            ~ 0)) |>
+  # Count dot balls
+  dplyr::summarise(
+    balls_bowled = max(balls_bowled),
+    dot_balls_count = sum(flag_dot_balls),
+    .groups = "drop") |>
+  dplyr::mutate(
+    pct_of_balls_bowled = round(
+      dot_balls_count / balls_bowled * 100, 0),
+    bowling_team = factor(
+      bowling_team,
+      levels = rev(c("Australia",
+                 "England",
+                 "India",
+                 "New Zealand",
+                 "South Africa",
+                 "West Indies",
+                 "Sri Lanka",
+                 "Pakistan",
+                 "Bangladesh"))))
+
+```
+
+```{r plot_freq_dot_balls}
+
+# Build plot
+plot_freq_dot_balls <- ggplot2::ggplot() +
+  ggplot2::geom_boxplot(
+    data = freq_dot_balls,
+    ggplot2::aes(
+      x = pct_of_balls_bowled, y = bowling_team))
+
+# Display plot
+plot_freq_dot_balls
+
+```
+
+## Performance modelling
+
+Logistic regression - W/L
+
+- Runs scored from boundaries
+- % of innings total scored from boundaries
+- Balls scored from as % of balls faced (excluding extras)
+- Balls taken to dismiss the top 3 batters
+- Dot balls as % of balls bowled
+
+## Gaps in data
+
+Fielding data availability and range of metrics
+- Run outs
+- "Dropped" catches? (flagged in Sportradar data)
+- Runs saved?
+
+Hawkeye data limited for women's matches
+
+## Extending the analysis
+
+- Strategic / campaign insights - tour timing and frequency, scheduling, familiarity with venue and surfaces, personnel changes (coaches / staff)
+- Team composition / selection - international experience, player types (e.g., batting / bowling specialists, types of bowlers - pace / spin, all-rounders), playing list continuity
+- Deeper analysis of:
+     - Key opposition, using data from T20 internationals in addition to T20 World Cups / Comm Games (e.g., England, India, South Africa, New Zealand)
+     - Individual-level performances, identifying impact players with bat and ball, bowler-batter match-ups
+- Analysis of performance in game phases - e.g., Powerplay, middle overs, "death" overs
+- Data from Sportradar and possibly Hawkeye data if available for women's matches, enabling more granular analysis of:
+     - Bowling execution (pitch map, types of balls bowled)
+     - Distribution of scoring shots in different parts of the ground
+- Relevance of professional T20 leagues? Australia (WBBL), England (The Hundred), India (WPL), New Zealand (Super Smash)
