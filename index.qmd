@@ -16,17 +16,13 @@ colours_mint <- "#09C38E"
 
 ```
 
-## {.center}
+## {.center background-image="img/aus.png"}
 
 ::: {style="text-align:center; font-size: 3em;"}
 
-```{r, fig.align = "center"}
+[What It Takes To Win]{style="font-size:0.65em;font-weight:bold;"}
 
-knitr::include_graphics(here::here("img/aus.jpg"))
-
-```
-
-[What It Takes To Win: Cricket - Women's T20]{style="font-size:0.65em;font-weight:bold;"}
+[Cricket - Women's T20]{style="font-size:0.65em;font-weight:bold;"}
 
 [Jacquie Tran | 8 Dec 2024]{style="font-size:0.35em;"}
 
