@@ -992,8 +992,8 @@ Hawkeye data limited for women's matches
 - Deeper analysis of:
      - Key opposition, using data from T20 internationals in addition to T20 World Cups / Comm Games (e.g., England, India, South Africa, New Zealand)
      - Individual-level performances, identifying impact players with bat and ball, bowler-batter match-ups
-- Analysis of performance in game phases - e.g., Powerplay, middle overs, "death" overs
 - Data from Sportradar and possibly Hawkeye data if available for women's matches, enabling more granular analysis of:
      - Bowling execution (pitch map, types of balls bowled)
      - Distribution of scoring shots in different parts of the ground
 - Relevance of professional T20 leagues? Australia (WBBL), England (The Hundred), India (WPL), New Zealand (Super Smash)
+- Using a larger data set from more T20I matches - use statistical modelling, e.g., logistic regression, to understand the relative importance of various performance indicators.
