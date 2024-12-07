@@ -389,6 +389,11 @@ team_outcomes_tidy |>
   gt::tab_style(
     style = gt::cell_text(weight = "bold"),
     locations = gt::cells_column_labels()) |>
+  gt::cols_align(
+    align = "center",
+    columns = c(
+      "n_tournaments", "win", "loss", "no_result", "matches_total",
+      "win_pct")) |>
   gt::data_color(
     columns = win,
     method = "numeric",
