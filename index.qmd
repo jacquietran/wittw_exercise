@@ -10,7 +10,7 @@ format:
 # Define document colours ------------------------------------------------------
 
 colours_light_grey <- "#CAC1BE"
-colours_amaranth <- "#9D1B39"
+colours_amaranth <- "#872378"
 colours_aquamarine <- "#15F4B5"
 colours_mint <- "#09C38E"
 
@@ -25,6 +25,12 @@ colours_mint <- "#09C38E"
 [Cricket - Women's T20]{style="font-size:0.65em;font-weight:bold;"}
 
 [Jacquie Tran | 8 Dec 2024]{style="font-size:0.35em;"}
+
+:::
+
+::: footer
+
+[https://jacquietran.github.io/wittw_exercise](https://jacquietran.github.io/wittw_exercise)
 
 :::
 
@@ -124,10 +130,29 @@ Teams that bat first and set a target of 150+ generally go on to win the game.
 
 > **What performance indicators are related to winning?**
 
-- Batting:
-- Bowling:
+[Batting]{style="color:#F7EC13;font-weight:bold;"}
 
-# Methods
+::: {.fragment .incremental}
+
+Teams that are more successful in tournament play:
+
+- Score a greater percentage of their runs from boundaries (Australia / England / India: 50-53%)
+- Score from 2 of every 3 balls faced (excluding runs from extras).
+
+:::
+
+::: {.fragment .incremental}
+
+[Bowling]{style="color:#F7EC13;font-weight:bold;"}
+
+- There is a general trend that higher-ranked teams are faster to take top order wickets than lower-ranked teams.
+     - Australia is the only team that consistently takes 3 wickets within 8 overs or less.
+- Sides that bowl well frequently bowl dot balls throughout an innings.
+     - Australia, England, and South Africa excel in this area, with dot balls comprising ~44% of balls bowled in an innings.
+
+:::
+
+# Methods {background-image="img/midge.png"}
 
 ## Caveat: Only a slice of "What It Takes To Win"
 
@@ -287,9 +312,7 @@ knitr::include_graphics(here::here("img/pipeline.png"))
 ::: aside
 :::
 
-# Game outcomes
-
-High-level performance outcomes
+# Game outcomes {background-image="img/pez.png"}
 
 ## Ranking teams on match outcomes
 
@@ -417,82 +440,6 @@ team_outcomes_tidy |>
 
 
 
-## Ranking teams on wins - superceded
-
-Rank on number of matches won, then win percentage
-
-```{r wrangle_teams_in_3_plus_tournaments}
-
-# First, identify teams that played in 3+ tournaments
-teams_in_3_plus_tournaments <- t20wc_match_ids |>
-  dplyr::select(
-    date, team1, team2) |>
-  dplyr::mutate(
-    year = stringr::str_sub(date, start = 1, end = 4)) |>
-  dplyr::select(
-    year, team1, team2) |>
-  tidyr::pivot_longer(
-    cols = c("team1", "team2"),
-    names_to = "key",
-    values_to = "value") |>
-  dplyr::select(-key) |>
-  dplyr::group_by(year) |>
-  dplyr::distinct(value, .keep_all = TRUE) |>
-  dplyr::ungroup() |>
-  dplyr::group_by(value) |>
-  dplyr::summarise(
-    n_tournaments = dplyr::n(),
-    .groups = "drop") |>
-  dplyr::filter(n_tournaments >= 3)
-
-```
-
-
-```{r wrangle_team_rankings_superceded, eval = FALSE}
-
-team_rankings <- t20wc_match_ids |>
-  dplyr::select(
-    match_id, team1, team2, winner) |>
-  tidyr::pivot_longer(
-    cols = c("team1", "team2"),
-    names_to = "key",
-    values_to = "team") |>
-  dplyr::mutate(
-    result = dplyr::case_when(
-      is.na(winner)  ~ "no_result",
-      winner == team ~ "win",
-      winner != team ~ "loss")) |>
-  # Filter to teams in 3+ tournaments
-  dplyr::filter(
-    team %in% teams_in_3_plus_tournaments$value) |>
-  dplyr::select(
-    match_id, team, result) |>
-  dplyr::group_by(team, result) |>
-  dplyr::summarise(
-    n_matches = dplyr::n(),
-    .groups = "drop") |>
-  tidyr::pivot_wider(
-    id_cols = "team",
-    names_from = "result",
-    values_from = "n_matches",
-    values_fill = 0) |>
-  dplyr::mutate(
-    matches_total = win + loss + no_result,
-    win_pct = round(win / matches_total * 100, 1)) |>
-  dplyr::arrange(
-    desc(win), desc(win_pct)) |>
-  dplyr::select(
-    team, win, loss, no_result, matches_total, win_pct)
-
-```
-
-```{r tabulate_team_rankings, eval = FALSE}
-
-team_rankings |>
-  gt::gt()
-
-```
-
 ## Wickets in phases of an innings
 
 ```{r wrangle_wickets_in_phases}
@@ -581,7 +528,7 @@ plot_wickets_in_phases
 ```
 
 
-## Runs: Innings totals
+## Total runs scored in an innings
 
 ```{r wrangle_innings_totals}
 
@@ -630,22 +577,127 @@ innings_total_summary <- innings_totals |>
 
 ```
 
-```{r plot_innings_totals_pooled, message = FALSE}
+::: {.r-stack}
 
-ggplot2::ggplot() +
+::: {.fragment}
+
+```{r plot_innings_totals_pooled_1, message = FALSE}
+
+# Build plot
+set.seed(1133) # for geom_quasirandom()
+plot_innings_totals_pooled_1 <- ggplot2::ggplot() +
   ggbeeswarm::geom_quasirandom(
     data = innings_totals,
     ggplot2::aes(
       x = innings_total, y = factor(result_for_batting_team),
-      group = result_for_batting_team),
+      group = result_for_batting_team, colour = factor(result_for_batting_team)),
     groupOnX = FALSE, varwidth = TRUE,
     method = "pseudorandom", cex = 2.5) +
-  ggplot2::facet_wrap(~innings_label)
+  ggplot2::facet_wrap(~innings_label) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 230),
+    breaks = seq(0, 200, by = 50)) +
+  ggplot2::scale_y_discrete(
+    labels = c(
+      "1" = "Win",
+      "0" = "Loss")) +
+  ggplot2::scale_colour_manual(
+    values = c(
+      "1" = colours_mint,
+      "0" = colours_amaranth)) +
+  ggplot2::labs(
+    x = "Runs scored", y = NULL) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "none",
+    panel.grid.major.y = ggplot2::element_blank(),
+    panel.grid.minor = ggplot2::element_blank(),
+    panel.spacing = grid::unit(2, "lines"),
+    strip.text = ggplot2::element_text(
+      size = ggplot2::rel(1.4), face = "bold"),
+    strip.background = ggplot2::element_rect(
+      colour = colours_light_grey, fill = colours_light_grey),
+    axis.title.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(t = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6)),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), face = "bold")
+  )
+
+# Display plot
+plot_innings_totals_pooled_1
 
 ```
- 
+
+:::
+
+::: {.fragment}
+
+```{r plot_innings_totals_pooled_2, message = FALSE}
+
+# Build plot
+set.seed(1133) # for geom_quasirandom()
+plot_innings_totals_pooled_2 <- ggplot2::ggplot() +
+  ggplot2::geom_vline(
+    data = innings_totals |>
+      dplyr::filter(innings_label == "Setting"),
+    ggplot2::aes(xintercept = 150),
+    linetype = "dashed", linewidth = 1) +
+  ggbeeswarm::geom_quasirandom(
+    data = innings_totals,
+    ggplot2::aes(
+      x = innings_total, y = factor(result_for_batting_team),
+      group = result_for_batting_team, colour = factor(result_for_batting_team)),
+    groupOnX = FALSE, varwidth = TRUE,
+    method = "pseudorandom", cex = 2.5) +
+  ggplot2::facet_wrap(~innings_label) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 230),
+    breaks = seq(0, 200, by = 50)) +
+  ggplot2::scale_y_discrete(
+    labels = c(
+      "1" = "Win",
+      "0" = "Loss")) +
+  ggplot2::scale_colour_manual(
+    values = c(
+      "1" = colours_mint,
+      "0" = colours_amaranth)) +
+  ggplot2::labs(
+    x = "Runs scored", y = NULL) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "none",
+    panel.grid.major.y = ggplot2::element_blank(),
+    panel.grid.minor = ggplot2::element_blank(),
+    panel.spacing = grid::unit(2, "lines"),
+    strip.text = ggplot2::element_text(
+      size = ggplot2::rel(1.4), face = "bold"),
+    strip.background = ggplot2::element_rect(
+      colour = colours_light_grey, fill = colours_light_grey),
+    axis.title.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(t = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6)),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), face = "bold")
+  )
+
+# Display plot
+plot_innings_totals_pooled_2
+
+```
+
+:::
+
+:::
+
+::: {.incremental}
+
 - Wide variability in totals when setting, but ~150 runs seems important.
 - No discernible difference in chasing totals between winning and losing teams (To be expected - because the winning target is set by the team that bats first)
+
+:::
  
 ## Setting a total above / below 150
  
@@ -669,15 +721,45 @@ innings_above_below_150 <- innings_totals |>
 ```{r plot_innings_above_below_150, message = FALSE}
 
 # Build plot
+set.seed(1133) # for geom_quasirandom()
 plot_innings_above_below_150 <- ggplot2::ggplot() +
   ggbeeswarm::geom_quasirandom(
     data = innings_totals |>
       dplyr::filter(innings_label == "Setting"),
     ggplot2::aes(
-      x = innings_total, y = result_for_batting_team,
+      x = innings_total, y = factor(result_for_batting_team),
       group = result_for_batting_team, colour = innings_total >= 150),
     groupOnX = FALSE, varwidth = TRUE,
-    method = "pseudorandom", cex = 2.5)
+    method = "pseudorandom", cex = 3.5) +
+  ggplot2::facet_wrap(~innings_label) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 230),
+    breaks = seq(0, 200, by = 50)) +
+  ggplot2::scale_y_discrete(
+    labels = c(
+      "1" = "Win",
+      "0" = "Loss")) +
+  ggplot2::scale_colour_manual(
+    values = c(colours_amaranth, colours_mint)) +
+  ggplot2::labs(
+    x = "Runs scored", y = NULL) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "none",
+    panel.grid.major.y = ggplot2::element_blank(),
+    panel.grid.minor = ggplot2::element_blank(),
+    panel.spacing = grid::unit(2, "lines"),
+    strip.text = ggplot2::element_text(
+      size = ggplot2::rel(1.4), face = "bold"),
+    strip.background = ggplot2::element_rect(
+      colour = colours_light_grey, fill = colours_light_grey),
+    axis.title.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(t = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6)),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), face = "bold")
+  )
 
 # Display plot
 plot_innings_above_below_150
@@ -687,18 +769,108 @@ plot_innings_above_below_150
 
 The team batting first has won:
 
+::: {.incremental}
+
 - 97% of matches when setting a target of 150 or above
 - 37% of matches when setting a target below 150
 
-# Batting performance
+:::
+
+# Performance indicators: Batting and bowling {background-image="img/3617.png"}
 
 > *"Batting performance characteristics appear to be more important than bowling characteristics, which is even more pronounced in women's T20 cricket."* ([Bhardwaj & Dwyer, 2022](https://doi.org/10.1080/24748668.2022.2045820))
 
-## Boundary scoring rate
+## Comparing teams on selected performance indicators
 
-Note: Cricsheet data does not flag boundary-scoring balls, as such. For this analysis, I am working under the assumption that "runs off bat" of 4 or 6 are boundaries. It is technically possible to run 4 or 6 runs off one ball (say, with overthrows), but these are rare occurrences.
+For this part of the analysis:
 
-```{r wrangle_boundary_scoring}
+::: {.incremental}
+
+- We use team rankings that were generated earlier
+- Focusing on teams that competed in 3+ tournaments from 2018 to 2024, for fairer comparisons between teams of varying tournament history.
+
+:::
+
+```{r wrangle_teams_in_3_plus_tournaments}
+
+teams_in_3_plus_tournaments <- team_outcomes_tidy |>
+  dplyr::filter(n_tournaments >= 3) |>
+  dplyr::mutate(
+    counting_var = 1,
+    ranking = cumsum(counting_var),
+    team_with_ranking = paste0(
+      team, " (rank: #", ranking, ")"))
+
+```
+
+::: {.fragment}
+
+```{r tabulate_teams_in_3_plus_tournaments}
+
+teams_in_3_plus_tournaments |>
+  dplyr::select(
+    team_label, n_tournaments, win, matches_total, win_pct) |>
+  gt::gt() |>
+  gt::cols_label(
+    team_label = "",
+    n_tournaments = "# of tournaments",
+    win = "Wins",
+    matches_total = "Total matches",
+    win_pct = "Win %") |>
+  gt::tab_style(
+    style = gt::cell_text(weight = "bold"),
+    locations = gt::cells_column_labels()) |>
+  gt::cols_align(
+    align = "center",
+    columns = c(
+      "n_tournaments", "win", "matches_total", "win_pct")) |>
+  gt::data_color(
+    columns = win,
+    method = "numeric",
+    palette = c(colours_amaranth, colours_aquamarine),
+    domain = c(
+      min(teams_in_3_plus_tournaments$win),
+      max(teams_in_3_plus_tournaments$win))) |>
+  gt::data_color(
+    columns = win_pct,
+    method = "numeric",
+    palette = c(colours_amaranth, colours_aquamarine),
+    domain = c(
+      min(teams_in_3_plus_tournaments$win_pct),
+      max(teams_in_3_plus_tournaments$win_pct)))
+
+```
+
+:::
+
+## Scoring power
+
+To score 150+ requires scoring faster than "a run a ball".
+
+Boundaries are highest value scoring options in cricket, worth 4 or 6 runs from one ball faced ^[Runs scored from a boundary depends on whether the ball reaches the boundary in the air (worth 6) or along the ground (worth 4).].
+
+::: {.fragment}
+
+Hypotheses:
+
+> *Higher-ranked teams are <strong>efficient scorers</strong>: They score a higher percentage of runs from boundaries than lower-ranked teams.*
+
+:::
+
+::: {.fragment}
+
+> *Higher-ranked teams are better at <strong>"turning over the strike"</strong> - they accumulate runs more consistently throughout a batting innings by scoring off a greater percentage of balls faced.*
+
+:::
+
+::: aside
+:::
+
+## Runs scored from boundaries
+
+Note: Cricsheet data does not flag boundary-scoring balls, as such. For this analysis, I am working under the assumption that "runs off bat" of 4 or 6 are boundaries. ^[It is technically possible to run 4 or 6 runs off one ball (say, with overthrows), but these are rare occurrences.]
+
+```{r wrangle_boundary_scoring_runs}
 
 # First, identify teams that played in 3+ tournaments
 teams_in_3_plus_tournaments <- t20wc_match_ids |>
@@ -728,17 +900,6 @@ boundary_scoring <- t20wc_bbb_tidy |>
   # Filter to teams that played in 3+ tournaments
   dplyr::filter(batting_team %in% teams_in_3_plus_tournaments$value)
 
-```
-
-Compare teams that competed in at least 3 tournaments
-
-- Runs scored from boundaries
-- % of innings total from boundaries
-
-## Boundary scoring: Runs scored
-
-```{r wrangle_boundary_scoring_runs}
-
 boundary_scoring_runs <- boundary_scoring |>
   dplyr::select(
     match_id, year, winner, innings, batting_team, dplyr::ends_with("_total"), 
@@ -763,7 +924,7 @@ boundary_scoring_runs <- boundary_scoring |>
       result_label, levels = c("Loss", "Win")),
     batting_team = factor(
       batting_team,
-      levels = c("Australia",
+      levels = rev(c("Australia",
                  "England",
                  "India",
                  "New Zealand",
@@ -771,7 +932,7 @@ boundary_scoring_runs <- boundary_scoring |>
                  "West Indies",
                  "Sri Lanka",
                  "Pakistan",
-                 "Bangladesh"))) |>
+                 "Bangladesh")))) |>
   dplyr::group_by(
     match_id, year, batting_team, result_label, innings_label, innings_total) |>
   dplyr::summarise(
@@ -780,27 +941,20 @@ boundary_scoring_runs <- boundary_scoring |>
     .groups = "drop") |>
   dplyr::mutate(
     pct_of_innings_total = round(
-      runs_from_boundaries / innings_total * 100, 0)
-  )
+      runs_from_boundaries / innings_total * 100, 0))
+
+# Calculate medians for boundaries as % of innings total
+boundary_scoring_pct_medians <- boundary_scoring_runs |>
+  dplyr::group_by(batting_team) |>
+  dplyr::summarise(
+    pct_median = median(pct_of_innings_total),
+    .groups = "drop") |>
+  dplyr::mutate(
+    pct_label = paste0(round(pct_median, 0), "%"))
 
 ```
 
-```{r plot_boundary_scoring_runs}
-
-# Build plot
-plot_boundary_scoring_runs <- ggplot2::ggplot() +
-  ggplot2::geom_boxplot(
-    data = boundary_scoring_runs,
-    ggplot2::aes(
-      x = runs_from_boundaries, y = result_label)) +
-  ggplot2::facet_wrap(~batting_team)
-
-# Display plot
-plot_boundary_scoring_runs
-
-```
-
-## Boundary scoring: Runs scored as % of innings total
+::: {.fragment}
 
 ```{r plot_boundary_scoring_pct_of_innings}
 
@@ -809,19 +963,45 @@ plot_boundary_scoring_pct_of_innings <- ggplot2::ggplot() +
   ggplot2::geom_boxplot(
     data = boundary_scoring_runs,
     ggplot2::aes(
-      x = pct_of_innings_total, y = result_label)) +
-  ggplot2::facet_wrap(~batting_team)
+      x = pct_of_innings_total, y = batting_team),
+    outlier.shape = NA, colour = colours_mint, fill = colours_mint,
+    alpha = 0.25, width = 0.7, linewidth = 1.2, fatten = 2.5) +
+  ggplot2::geom_text(
+    data = boundary_scoring_pct_medians,
+    ggplot2::aes(
+      x = pct_median, y = batting_team, label = pct_label),
+    nudge_x = 2.2, size = 3.2) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 75),
+    breaks = seq(0, 60, by = 20),
+    labels = c("0", "20%", "40%", "60%")) +
+  ggplot2::labs(
+    x = "% of innings total", y = NULL,
+    caption = "Chart labels indicate median values") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "none",
+    panel.grid.major.y = ggplot2::element_blank(),
+    panel.grid.minor = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(t = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6)),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), face = "bold")
+  )
 
 # Display plot
 plot_boundary_scoring_pct_of_innings
 
 ```
 
-## [TODO] Boundary-scoring balls as % of balls faced
+:::
+
+::: aside
+:::
 
 ## Building scoreboard pressure
-
-Balls scored from as % of balls faced (excluding extras)
 
 ```{r wrangle_turning_over_strike}
 
@@ -842,7 +1022,7 @@ turning_over_strike <- t20wc_bbb_tidy |>
       balls_scored_from / balls_faced * 100, 0),
     batting_team = factor(
       batting_team,
-      levels = c("Australia",
+      levels = rev(c("Australia",
                  "England",
                  "India",
                  "New Zealand",
@@ -850,7 +1030,16 @@ turning_over_strike <- t20wc_bbb_tidy |>
                  "West Indies",
                  "Sri Lanka",
                  "Pakistan",
-                 "Bangladesh")))
+                 "Bangladesh"))))
+
+# Calculate medians for scores as % of balls faced
+turning_over_strike_medians <- turning_over_strike |>
+  dplyr::group_by(batting_team) |>
+  dplyr::summarise(
+    pct_median = median(pct_of_balls_faced),
+    .groups = "drop") |>
+  dplyr::mutate(
+    pct_label = paste0(round(pct_median, 0), "%"))
 
 ```
 
@@ -861,23 +1050,81 @@ plot_turning_over_strike <- ggplot2::ggplot() +
   ggplot2::geom_boxplot(
     data = turning_over_strike,
     ggplot2::aes(
-      x = year, y = pct_of_balls_faced)) +
-  ggplot2::facet_wrap(~batting_team)
+      x = pct_of_balls_faced, y = batting_team),
+    outlier.shape = NA, colour = colours_mint, fill = colours_mint,
+    alpha = 0.25, width = 0.7, linewidth = 1.2, fatten = 2.5) +
+  ggplot2::geom_text(
+    data = turning_over_strike_medians,
+    ggplot2::aes(
+      x = pct_median, y = batting_team, label = pct_label),
+    nudge_x = 2.2, size = 3.2) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 80),
+    breaks = seq(0, 80, by = 20),
+    labels = c("0", "20%", "40%", "60%", "80%")) +
+  ggplot2::labs(
+    x = "% of balls faced", y = NULL,
+    caption = "Chart labels indicate median values") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "none",
+    panel.grid.major.y = ggplot2::element_blank(),
+    panel.grid.minor = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(t = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6)),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), face = "bold")
+  )
 
 # Display plot
 plot_turning_over_strike
 
 ```
 
-The more successful teams are capable of consistently scoring off ~60% of balls faced (not including runs from extras).
+::: {.fragment}
 
-# Bowling performance
+The more successful teams are capable of consistently scoring off 2 of every 3 balls faced (excluding runs from extras).
 
-## Top order wickets - first 3
+:::
 
-How quickly are the top order batters removed?
+::: {.fragment}
 
-> "The most important bowling characteristic relate to how quickly the first 3 to 5 batters are dismissed." ([Bhardwaj & Dwyer, 2022](https://doi.org/10.1080/24748668.2022.2045820))
+*Implications for bowling?*
+
+:::
+
+# Bowling performance {background-image="img/kingy.png"}
+
+## "Tempo"
+
+Concept from chess - creating pressure by staying one turn ahead of your opponent
+
+::: {.fragment .incremental}
+
+In cricket, bowling teams can build pressure by controlling and challenging 2 finite resources:
+
+- Balls to be bowled (maximum 120 regulation balls)
+- Wickets in hand (maximum 10)
+
+:::
+
+::: {.fragment}
+
+Hypotheses:
+
+> *Higher-ranked teams <strong>take top order wickets faster</strong> than lower-ranked teams (per [Bhardwaj & Dwyer, 2022](https://doi.org/10.1080/24748668.2022.2045820)), thereby minimising the threat of the opposing team's best batters.* 
+
+:::
+
+::: {.fragment}
+
+> *Higher-ranked teams <strong>bowl more "dot balls"</strong> than lower-ranked teams, especially in earlier phases of their bowling innings.*
+
+:::
+
+## Taking top order wickets
 
 ```{r wrangle_wicket_focus}
 
@@ -913,7 +1160,16 @@ wicket_focus <- t20wc_bbb_tidy |>
 top_3_wickets <- wicket_focus |>
   dplyr::filter(wickets_lost_yet == 3 & player_dismissed != "")
 
+# Calculate medians
+top_3_wickets_medians <- top_3_wickets |>
+  dplyr::group_by(bowling_team) |>
+  dplyr::summarise(
+    balls_bowled_median = median(balls_bowled),
+    .groups = "drop")
+
 ```
+
+::: {.fragment}
 
 ```{r plot_top_3_wickets}
 
@@ -922,12 +1178,45 @@ plot_top_3_wickets <- ggplot2::ggplot() +
   ggplot2::geom_boxplot(
     data = top_3_wickets,
     ggplot2::aes(
-      x = balls_bowled, y = bowling_team))
+      x = balls_bowled, y = bowling_team),
+    outlier.shape = NA, colour = colours_mint, fill = colours_mint,
+    alpha = 0.25, width = 0.7, linewidth = 1.2, fatten = 2.5) +
+  ggplot2::geom_text(
+    data = top_3_wickets_medians,
+    ggplot2::aes(
+      x = balls_bowled_median, y = bowling_team, label = balls_bowled_median),
+    nudge_x = 3, size = 3.2) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 130),
+    breaks = seq(0, 120, by = 24)) +
+  ggplot2::labs(
+    x = "Number of balls bowled", y = NULL,
+    caption = "Chart labels indicate median values") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "none",
+    panel.grid.major.y = ggplot2::element_blank(),
+    panel.grid.minor = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(t = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6)),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), face = "bold")
+  )
 
 # Display plot
 plot_top_3_wickets
 
 ```
+
+:::
+
+::: {.fragment}
+
+**Australia is notably dominant in this metric** - the only team that typically takes 3 wickets within 8 overs or less.
+
+:::
 
 ## Dot ball frequency
 
@@ -965,6 +1254,15 @@ freq_dot_balls <- t20wc_bbb_tidy |>
                  "Pakistan",
                  "Bangladesh"))))
 
+# Calculate medians
+freq_dot_balls_medians <- freq_dot_balls |>
+  dplyr::group_by(bowling_team) |>
+  dplyr::summarise(
+    pct_median = median(pct_of_balls_bowled),
+    .groups = "drop") |>
+  dplyr::mutate(
+    pct_label = paste0(round(pct_median, 0), "%"))
+
 ```
 
 ```{r plot_freq_dot_balls}
@@ -974,31 +1272,115 @@ plot_freq_dot_balls <- ggplot2::ggplot() +
   ggplot2::geom_boxplot(
     data = freq_dot_balls,
     ggplot2::aes(
-      x = pct_of_balls_bowled, y = bowling_team))
+      x = pct_of_balls_bowled, y = bowling_team),
+    outlier.shape = NA, colour = colours_mint, fill = colours_mint,
+    alpha = 0.25, width = 0.7, linewidth = 1.2, fatten = 2.5) +
+  ggplot2::geom_text(
+    data = freq_dot_balls_medians,
+    ggplot2::aes(
+      x = pct_median, y = bowling_team, label = pct_label),
+    nudge_x = 2.2, size = 3.2) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 75),
+    breaks = seq(0, 60, by = 20),
+    labels = c("0", "20%", "40%", "60%")) +
+  ggplot2::labs(
+    x = "% of balls bowled", y = NULL,
+    caption = "Chart labels indicate median values") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "none",
+    panel.grid.major.y = ggplot2::element_blank(),
+    panel.grid.minor = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6), margin = ggplot2::margin(t = 10, unit = "pt")),
+    axis.text.x = ggplot2::element_text(
+      size = ggplot2::rel(1.6)),
+    axis.text.y = ggplot2::element_text(
+      size = ggplot2::rel(1.6), face = "bold")
+  )
 
 # Display plot
 plot_freq_dot_balls
 
 ```
 
-## Gaps in data
+::: {.fragment}
 
-Fielding data availability and range of metrics
-- Run outs
-- "Dropped" catches? (flagged in Sportradar data)
-- Runs saved?
+There is less variation between teams of different rankings in terms of dot ball frequency.
 
-Hawkeye data limited for women's matches
+:::
 
-## Extending the analysis
+::: {.fragment}
 
-- Strategic / campaign insights - tour timing and frequency, scheduling, familiarity with venue and surfaces, personnel changes (coaches / staff)
-- Team composition / selection - international experience, player types (e.g., batting / bowling specialists, types of bowlers - pace / spin, all-rounders), playing list continuity
-- Deeper analysis of:
-     - Key opposition, using data from T20 internationals in addition to T20 World Cups / Comm Games (e.g., England, India, South Africa, New Zealand)
-     - Individual-level performances, identifying impact players with bat and ball, bowler-batter match-ups
-- Data from Sportradar and possibly Hawkeye data if available for women's matches, enabling more granular analysis of:
-     - Bowling execution (pitch map, types of balls bowled)
-     - Distribution of scoring shots in different parts of the ground
-- Relevance of professional T20 leagues? Australia (WBBL), England (The Hundred), India (WPL), New Zealand (Super Smash)
-- Using a larger data set from more T20I matches - use statistical modelling, e.g., logistic regression, to understand the relative importance of various performance indicators.
+The stronger sides in this metric are Australia, England, and South Africa, with dot balls comprising nearly half of balls bowled.
+
+:::
+
+## Limitations and considerations
+
+Limited availability and range of metrics about **fielding performance**.
+
+::: {.fragment}
+
+Fielding metrics that would be informative but are not routinely captured or difficult to define:
+
+- Dropped catches
+- Boundaries conceded
+- Runs saved
+
+:::
+
+::: {.fragment}
+
+Limited availability of Hawkeye data from women's matches - restricts the level of granularity that can be achieved in analysing technical performance
+
+:::
+
+## Ways to extend the analysis
+
+::: {.fragment}
+
+Campaign insights
+
+:::
+
+::: {.fragment}
+
+Team composition / selection
+
+:::
+
+::: {.fragment}
+
+Collaborate with athletes, coaches, and performance staff to identify key performance features and related metrics
+
+:::
+
+::: {.fragment}
+
+Draw on a wider body of research literature, where available
+
+:::
+
+::: {.fragment}
+
+Deeper analysis of opposition teams and individual player performances
+
+:::
+
+::: {.fragment}
+
+Assess relevance of performance in professional T20 leagues to T20 internationals
+
+:::
+
+## {.center background-image="img/aus.png"}
+
+::: {style="text-align:center; font-size: 1.5em;"}
+
+Slides: [https://jacquietran.github.io/wittw_exercise](https://jacquietran.github.io/wittw_exercise)
+
+Code: [https://github.com/jacquietran/wittw_exercise](https://github.com/jacquietran/wittw_exercise)
+
+:::
